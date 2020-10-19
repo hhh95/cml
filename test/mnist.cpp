@@ -10,8 +10,6 @@ int main()
 	vector<Layer> layers;
 	layers.emplace_back(Layer(784, 30, make_unique<Sigmoid>()));
 	layers.emplace_back(Layer(30, 10, make_unique<Sigmoid>()));
-	layers.emplace_back(Layer(10, 10, make_unique<Sigmoid>()));
-	layers.emplace_back(Layer(10, 10, make_unique<Sigmoid>()));
 
 	Network net(data, layers);
 

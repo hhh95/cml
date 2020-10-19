@@ -31,6 +31,28 @@ class Sigmoid : public Sigma {
 		}
 };
 
+class TanH : public Sigma {
+	public:
+		VectorXd eval(VectorXd x) const override {
+			return tanh(x.array());
+		}
+
+		VectorXd deriv(VectorXd x) const override {
+			return 1 - pow(tanh(x.array()), 2);
+		}
+};
+
+class SoftPlus : public Sigma {
+	public:
+		VectorXd eval(VectorXd x) const override {
+			return log(1 + exp(x.array()));
+		}
+
+		VectorXd deriv(VectorXd x) const override {
+			return 1.0/(1 + exp(-x.array()));
+		}
+};
+
 
 class Layer {
 	public:
