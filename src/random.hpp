@@ -2,7 +2,10 @@
 #define RANDOM_HPP
 
 #include <random>
+#include <algorithm>
 #include <Eigen/Dense>
+
+#include <iostream>
 
 class RandomNumberGenerator {
 	public:
@@ -22,20 +25,10 @@ class RandomNumberGenerator {
 		}
 
 		std::vector<int> random_indices(int n) {
-			std::vector<int> index;
-			index.reserve(n);
-
-			for (int i = 0; i < n; ++i)
-				index[i] = i;
-
+			std::vector<int> index(n);
+			std::iota(std::begin(index), std::end(index), 0);
 			std::shuffle(std::begin(index), std::end(index), gen);
-
 			return index;
-		}
-
-		template<typename T>
-		void shuffle(std::vector<T>& v) {
-			std::shuffle(std::begin(v), std::end(v), gen);
 		}
 
 	private:

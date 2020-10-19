@@ -39,36 +39,29 @@ void Network::train(double alpha, int epochs, int batch_size, unique_ptr<Cost> c
 		data.shuffle_training_data();
 
 		/* get the training batches */
-		const vector<Data::Batch> batches = data.get_training_batches(batch_size);
+		const vector<Data::TrainSets> batches = data.get_training_batches(batch_size);
 
 		/* initialize mean cost */
 		double C_mean = 0;
 
 		/* perform stochastic gradient descent */
-		for(const Data::Batch& batch : batches) {
+		for(const Data::TrainSets& batch : batches) {
 
-			/* train on mini batch */
-			for (const Data::TrainSet& set : batch) {
-				VectorXd a = set.first;
+			MatrixXd a = batch.first;
 
-				/* feed forward */
-				for (int l = 0; l < (int)layers.size(); ++l)
-					a = layers[l].feed_forward(a);
-
-				/* add up cost */
-				C_mean += cost->eval(a, set.second);
-
-				/* calculate cost derivative */
-				VectorXd dC_da_out = cost->deriv(a, set.second);
-
-				/* back propagation */
-				for (int l = (int)layers.size() - 1; l >= 0; --l)
-					dC_da_out = layers[l].feed_backward(dC_da_out);
-			}
-
-			/* update layer weights */
+			/* feed forward */
 			for (int l = 0; l < (int)layers.size(); ++l)
-				layers[l].update_weights(alpha, batch.size());
+				a = layers[l].feed_forward(a);
+
+			/* add up cost */
+			C_mean += cost->eval(a, batch.second);
+
+			/* calculate cost derivative */
+			MatrixXd dC_da_out = cost->deriv(a, batch.second);
+
+			/* back propagation */
+			for (int l = (int)layers.size() - 1; l >= 0; --l)
+				dC_da_out = layers[l].feed_backward(dC_da_out, alpha);
 		}
 
 		if (do_tests_inbetween) {
@@ -89,51 +82,63 @@ void Network::train(double alpha, int epochs, int batch_size, unique_ptr<Cost> c
 	cout << endl;
 }
 
-vector<Data::TestSet> Network::_test() const
+Data::TestSets Network::_test() const
 {
-	const vector<Data::TestSet> test_data = data.get_test_data();
+	const Data::TestSets test_data = data.get_test_sets();
 
 	int n_correct = 0;
 
-	vector<Data::TestSet> incorrect;
+	vector<int> incorrect;
 
-	for(const Data::TestSet& set : test_data) {
-		VectorXd a = set.first;
+	MatrixXd a = test_data.first;
 
-		/* feed forward */
-		for (int l = 0; l < (int)layers.size(); ++l)
-			a = layers[l].feed_forward(a);
+	/* feed forward */
+	for (int l = 0; l < (int)layers.size(); ++l)
+		a = layers[l].feed_forward(a);
 
-		/* check if output is correct */
-		int prediction; a.maxCoeff(&prediction);
-		if (prediction == set.second) {
+	/* check if output is correct */
+	for (int i = 0; i < data.get_n_test_sets(); ++i) {
+
+		int prediction; a.col(i).maxCoeff(&prediction);
+
+		if (prediction == test_data.second(i)) {
 			++n_correct;
 		} else {
-			incorrect.emplace_back(set);
+			incorrect.emplace_back(i);
 		}
 	}
 
 	/* display the amount of correct classifications */
-	cout << n_correct << "/" << test_data.size() << " ("
-		 << fixed << setprecision(2) << setw(5) << 100.0*n_correct/test_data.size()
+	cout << setw((int)log10(data.get_n_test_sets()) + 1) << n_correct
+		 << "/" << data.get_n_test_sets() << " ("
+		 << fixed << setprecision(2) << setw(5) << 100.0*n_correct/data.get_n_test_sets()
 		 << "%) correct";
 
-	return incorrect;
+	/* return the incorrect test sets */
+	MatrixXd incorrect_data(data.get_n_inputs(), (int)incorrect.size());
+	VectorXi incorrect_label((int)incorrect.size());
+
+	for (int i = 0; i < (int)incorrect.size(); ++i) {
+		incorrect_data.col(i) = test_data.first.col(incorrect[i]);
+		incorrect_label(i) = test_data.second(incorrect[i]);
+	}
+
+	return make_pair(incorrect_data, incorrect_label);
 }
 
 void Network::test(int n_incorrect) const
 {
 	cout << "Testing neural network on " << data.get_n_test_sets() << " sets:" << endl;
 
-	vector<Data::TestSet> incorrect = _test();
-
-	/* shuffle the incorrect data */
-	rng.shuffle<Data::TestSet>(incorrect);
+	Data::TestSets incorrect = _test();
 
 	cout << "\n\nIncorrectly classified data:" << endl;
 
+	/* create random indices, so that differnet images are shown every run */
+	vector<int> idx = rng.random_indices(incorrect.first.cols());
+
 	for (int i = 0; i < n_incorrect; ++i) {
-		VectorXd a = incorrect[i].first;
+		VectorXd a = incorrect.first.col(idx[i]);
 
 		/* feed forward */
 		for (int l = 0; l < (int)layers.size(); ++l)
@@ -143,7 +148,7 @@ void Network::test(int n_incorrect) const
 		int prediction; a.maxCoeff(&prediction);
 
 		/* show incorrect data */
-		data.show_data(incorrect[i]);
+		data.show_data(a, incorrect.second(idx[i]));
 		cout << "Predicition: " << prediction << endl << endl;
 	}
 }

@@ -8,50 +8,50 @@ RandomNumberGenerator rng;
 MNIST::MNIST(const string& dir_name, const vector<int>& splits) :
 	Data(dir_name, splits)
 {
-	assert(splits.size() == 3);
+	/* training data is split in two parts */
+	assert(splits.size() == 2);
 
-	vector<VectorXd> training_images = read_mnist_images(dir_name
-			+ "/train-images-idx3-ubyte");
-	vector<uint8_t> training_labels = read_mnist_labels(dir_name
-			+ "/train-labels-idx1-ubyte");
+	/* read training data and labels */
+	MatrixXd training_images = read_mnist_images(dir_name + "/train-images-idx3-ubyte");
+	VectorXi training_labels = read_mnist_labels(dir_name + "/train-labels-idx1-ubyte");
 
-	vector<VectorXd> test_images = read_mnist_images(dir_name
-			+ "/t10k-images-idx3-ubyte");
-	vector<uint8_t> test_labels = read_mnist_labels(dir_name
-			+ "/t10k-labels-idx1-ubyte");
+	/* read test data and labels */
+	MatrixXd test_images = read_mnist_images(dir_name + "/t10k-images-idx3-ubyte");
+	VectorXi test_labels = read_mnist_labels(dir_name + "/t10k-labels-idx1-ubyte");
 
 	/* determine inputs and outputs of the data set */
-	n_inputs = training_images[0].size();
-	auto minmax = std::minmax_element(begin(training_labels), end(training_labels));
-	n_outputs = *minmax.second - *minmax.first + 1;
+	n_inputs  = training_images.rows();
+	n_outputs = training_labels.maxCoeff() - training_labels.minCoeff() + 1;
 	cout << "- " << n_inputs << " inputs, " << n_outputs << " outputs" << endl;
 
-	int i_td = 0;
+	/* make sure the training and test data have the same layout */
+	assert(test_images.rows() == n_inputs);
+	assert(test_labels.maxCoeff() - test_labels.minCoeff() + 1 == n_outputs);
 
 	/* create training data */
-	for (int i = 0; i < splits[0]; ++i) {
-		VectorXd output(10);
-
-		output.setZero();
-		output(training_labels[i_td]) = 1;
-
-		training_data.emplace_back(make_pair(training_images[i_td], output));
-		++i_td;
-	}
-	cout << "- " << training_data.size() << " training data sets" << endl;
+	MatrixXd outputs(n_outputs, splits[0]);
+	outputs.setZero();
+	for (int i = 0; i < splits[0]; ++i)
+		outputs(training_labels(i), i) = 1;
+	training_data = make_pair(
+		training_images.leftCols(splits[0]),
+		outputs
+	);
+	cout << "- " << get_n_training_sets() << " training data sets" << endl;
 
 	/* create validation data */
-	for (int i = 0; i < splits[1]; ++i) {
-		validation_data.emplace_back(make_pair(training_images[i_td], training_labels[i_td]));
-		++i_td;
-	}
-	cout << "- " << validation_data.size() << " validation data sets" << endl;
+	validation_data = make_pair(
+		training_images.rightCols(splits[1]),
+		training_labels.bottomRows(splits[1])
+	);
+	cout << "- " << get_n_validation_sets() << " validation data sets" << endl;
 
 	/* create test data */
-	for (int i = 0; i < splits[2]; ++i) {
-		test_data.emplace_back(make_pair(training_images[i], training_labels[i]));
-	}
-	cout << "- " << test_data.size() << " test data sets" << endl << endl;
+	test_data = make_pair(
+		test_images,
+		test_labels
+	);
+	cout << "- " << get_n_test_sets() << " test data sets" << endl << endl;
 }
 
 uint32_t MNIST::reverse_int(uint32_t& n)
@@ -68,7 +68,7 @@ uint32_t MNIST::reverse_int(uint32_t& n)
     return n;
 }
 
-vector<VectorXd> MNIST::read_mnist_images(const string& file_name)
+MatrixXd MNIST::read_mnist_images(const string& file_name)
 {
 	ifstream fin(file_name, ios::binary);
 	assert(fin.is_open());
@@ -84,20 +84,16 @@ vector<VectorXd> MNIST::read_mnist_images(const string& file_name)
 
 	int n_pixels = n_rows*n_cols;
 
-	vector<VectorXd> images(n_images);
+	Matrix<uint8_t, Dynamic, Dynamic> images(n_pixels, n_images);
 
-	for (uint32_t i = 0; i < n_images; ++i) {
-		Matrix<uint8_t, Dynamic, 1, 0, Dynamic, 1> image(n_pixels);
-		fin.read((char*)image.data(), n_pixels*sizeof(uint8_t));
-		images[i] = image.cast<double>()/255.0;
-	}
+	fin.read((char*)images.data(), n_pixels*n_images*sizeof(uint8_t));
 
 	fin.close();
 
-	return images;
+	return images.cast<double>()/255.0;
 }
 
-vector<uint8_t> MNIST::read_mnist_labels(const string& file_name)
+VectorXi MNIST::read_mnist_labels(const string& file_name)
 {
 	ifstream fin(file_name, ios::binary);
 	assert(fin.is_open());
@@ -109,23 +105,23 @@ vector<uint8_t> MNIST::read_mnist_labels(const string& file_name)
 
 	fin.read((char*)&n_labels, sizeof(n_labels)); reverse_int(n_labels);
 
-	vector<uint8_t> labels(n_labels);
+	Matrix<uint8_t, Dynamic, 1, 0, Dynamic, 1> labels(n_labels);
 
 	fin.read((char*)labels.data(), n_labels*sizeof(uint8_t));
 
 	fin.close();
 
-	return labels;
+	return labels.cast<int>();
 }
 
-void MNIST::show_data(const TestSet& set) const
+void MNIST::show_data(const VectorXd& data, int label) const
 {
-	int n = sqrt(set.first.size());
+	int n_pixels = data.size();
+	int n_cols = sqrt(n_pixels);
 
 	cout << "Image:" << endl;
-
-	for (int pixel = 0; pixel < set.first.size(); ++pixel) {
-		int val = (int)(4*set.first(pixel) - 0.01);
+	for (int pixel = 0; pixel < n_pixels; ++pixel) {
+		int val = (int)(4*data(pixel) - 0.01);
 
 		switch (val) {
 			case 0: cout << "░"; break;
@@ -134,9 +130,8 @@ void MNIST::show_data(const TestSet& set) const
 			case 3: cout << "█"; break;
 		}
 
-		if ((pixel + 1)%n == 0)
+		if ((pixel + 1)%n_cols == 0)
 			cout << endl;
 	}
-
-	cout << "Label: " << set.second << endl;
+	cout << "Label: " << label << endl;
 }

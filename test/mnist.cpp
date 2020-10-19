@@ -5,7 +5,7 @@ using namespace std;
 
 int main()
 {
-	MNIST data("data/mnist", {50000, 10000, 10000});
+	MNIST data("data/mnist", {50000, 10000});
 
 	vector<Layer> layers;
 	layers.emplace_back(Layer(784, 30, make_unique<Sigmoid>()));

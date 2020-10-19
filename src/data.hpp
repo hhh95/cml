@@ -10,10 +10,12 @@
 
 class Data {
 	public:
+		using VectorXi = Eigen::VectorXi;
 		using VectorXd = Eigen::VectorXd;
-		using TrainSet = std::pair<VectorXd, VectorXd>;
-		using TestSet = std::pair<VectorXd, int>;
-		using Batch = std::vector<TrainSet>;
+		using MatrixXd = Eigen::MatrixXd;
+
+		using TrainSets = std::pair<MatrixXd, MatrixXd>;
+		using TestSets  = std::pair<MatrixXd, VectorXi>;
 
 		Data(const std::string& dir_name, const std::vector<int>& splits) :
 			splits{splits}
@@ -21,31 +23,40 @@ class Data {
 			std::cout << "Reading data from '" << dir_name << "':" << std::endl;
 		}
 
-		virtual void show_data(const TestSet& set) const = 0;
+		virtual void show_data(const VectorXd& data, int label) const = 0;
 
-		virtual void show_data(const TrainSet& set) const = 0;
+		void shuffle_training_data() {
+			std::vector<int> idx = rng.random_indices(get_n_training_sets());
+			TrainSets training_data_copy = training_data;
+			for (int i = 0; i < get_n_training_sets(); ++i) {
+				training_data.first.col(i) = training_data_copy.first.col(idx[i]);
+				training_data.second.col(i) = training_data_copy.second.col(idx[i]);
+			}
+		}
 
-		void shuffle_training_data() { rng.shuffle<TrainSet>(training_data); }
+		const std::vector<TrainSets> get_training_batches(int batch_size) const {
+			std::vector<TrainSets> batches;
 
-		const std::vector<Batch> get_training_batches(int batch_size) const {
-			std::vector<Batch> batches;
+			int i = 0;
 
-			int i_start = 0;
-			int i_end = i_start + batch_size;
-
-			while (i_end < get_n_training_sets()) {
-				Batch batch = {&training_data[i_start], &training_data[i_end]};
+			while (i + batch_size < get_n_training_sets()) {
+				TrainSets batch = std::make_pair(
+					training_data.first.middleCols(i, batch_size),
+					training_data.second.middleCols(i, batch_size)
+				);
 
 				batches.emplace_back(batch);
 
-				i_start = i_end;
-				i_end = i_start + batch_size;
+				i += batch_size;
 			}
 
-			if (i_start < get_n_training_sets()) {
-				i_end = get_n_training_sets();
+			if (i < get_n_training_sets()) {
+				batch_size = get_n_training_sets() - i - 1;
 
-				Batch batch = {&training_data[i_start], &training_data[i_end]};
+				TrainSets batch = std::make_pair(
+					training_data.first.middleCols(i, batch_size),
+					training_data.second.middleCols(i, batch_size)
+				);
 
 				batches.emplace_back(batch);
 			}
@@ -53,15 +64,15 @@ class Data {
 			return batches;
 		}
 
-		const std::vector<TrainSet>& get_training_data() const {
+		const TrainSets& get_training_sets() const {
 			return training_data;
 		}
 
-		const std::vector<TestSet>& get_validation_data() const {
+		const TestSets& get_validation_sets() const {
 			return validation_data;
 		}
 
-		const std::vector<TestSet>& get_test_data() const {
+		const TestSets& get_test_sets() const {
 			return test_data;
 		}
 
@@ -69,18 +80,18 @@ class Data {
 
 		int get_n_outputs() const { return n_outputs; }
 
-		int get_n_training_sets() const { return training_data.size(); }
+		int get_n_training_sets() const { return training_data.first.cols(); }
 
-		int get_n_validation_sets() const { return validation_data.size(); }
+		int get_n_validation_sets() const { return validation_data.first.cols(); }
 
-		int get_n_test_sets() const { return test_data.size(); }
-
-		const std::vector<int>& splits;
+		int get_n_test_sets() const { return test_data.first.cols(); }
 
 	protected:
-		std::vector<TrainSet> training_data;
-		std::vector<TestSet> validation_data;
-		std::vector<TestSet> test_data;
+		const std::vector<int>& splits;
+
+		TrainSets training_data;
+		TestSets  validation_data;
+		TestSets  test_data;
 
 		int n_inputs;
 		int n_outputs;
@@ -91,20 +102,15 @@ class MNIST : public Data {
 
 		MNIST(const std::string& dir_name, const std::vector<int>& splits);
 
-		void show_data(const TestSet& set) const override;
-
-		void show_data(const TrainSet& set) const override {
-			int label; set.second.maxCoeff(&label);
-			show_data(std::make_pair(set.first, label));
-		}
+		void show_data(const VectorXd& data, int label) const override;
 
 	private:
 
 		uint32_t reverse_int(uint32_t& n);
 
-		std::vector<VectorXd> read_mnist_images(const std::string& file_name);
+		MatrixXd read_mnist_images(const std::string& file_name);
 
-		std::vector<uint8_t> read_mnist_labels(const std::string& file_name);
+		VectorXi read_mnist_labels(const std::string& file_name);
 };
 
 #endif

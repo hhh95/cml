@@ -13,42 +13,42 @@
 
 class Sigma {
 	public:
-		using VectorXd = Eigen::VectorXd;
+		using MatrixXd = Eigen::MatrixXd;
 
-		virtual VectorXd eval(VectorXd x) const = 0;
+		virtual MatrixXd eval(MatrixXd x) const = 0;
 
-		virtual VectorXd deriv(VectorXd x) const = 0;
+		virtual MatrixXd deriv(MatrixXd x) const = 0;
 };
 
 class Sigmoid : public Sigma {
 	public:
-		VectorXd eval(VectorXd x) const override {
+		MatrixXd eval(MatrixXd x) const override {
 			return 1.0/(1.0 + exp(-x.array()));
 		}
 
-		VectorXd deriv(VectorXd x) const override {
+		MatrixXd deriv(MatrixXd x) const override {
 			return exp(x.array())/pow(exp(x.array()) + 1.0, 2);
 		}
 };
 
 class TanH : public Sigma {
 	public:
-		VectorXd eval(VectorXd x) const override {
+		MatrixXd eval(MatrixXd x) const override {
 			return tanh(x.array());
 		}
 
-		VectorXd deriv(VectorXd x) const override {
+		MatrixXd deriv(MatrixXd x) const override {
 			return 1 - pow(tanh(x.array()), 2);
 		}
 };
 
 class SoftPlus : public Sigma {
 	public:
-		VectorXd eval(VectorXd x) const override {
+		MatrixXd eval(MatrixXd x) const override {
 			return log(1 + exp(x.array()));
 		}
 
-		VectorXd deriv(VectorXd x) const override {
+		MatrixXd deriv(MatrixXd x) const override {
 			return 1.0/(1 + exp(-x.array()));
 		}
 };
@@ -66,43 +66,33 @@ class Layer {
 
 			W = rng(n_outputs, n_inputs);
 			b = rng(n_outputs);
-
-			dC_dW = MatrixXd::Zero(n_outputs, n_inputs);
-			dC_db = VectorXd::Zero(n_outputs);
 		}
 
-		VectorXd feed_forward(const VectorXd& a_in) {
+		MatrixXd feed_forward(const MatrixXd& a_in) {
 			this->a_in = a_in;
-			z = W*a_in + b;
+			z = W*a_in + b.asDiagonal()*MatrixXd::Ones(b.rows(), a_in.cols());
 			return sigma->eval(z);
 		}
 
-		VectorXd feed_backward(const VectorXd& dC_da_out) {
-			VectorXd delta = dC_da_out.asDiagonal()*sigma->deriv(z);
+		MatrixXd feed_backward(const MatrixXd& dC_da_out, double alpha) {
+			MatrixXd delta = dC_da_out.cwiseProduct(sigma->deriv(z));
+			MatrixXd _dC_da_out = W.transpose()*delta;
 
-			dC_dW += delta*a_in.transpose();
-			dC_db += delta;
+			MatrixXd dC_dW = delta*a_in.transpose();
+			VectorXd dC_db = delta.rowwise().sum();
 
-			return W.transpose()*delta;
-		}
+			W -= alpha/a_in.cols()*dC_dW;
+			b -= alpha/a_in.cols()*dC_db;
 
-		void update_weights(double alpha, int batch_size) {
-			W -= alpha/batch_size*dC_dW;
-			b -= alpha/batch_size*dC_db;
-
-			dC_dW.setZero();
-			dC_db.setZero();
+			return _dC_da_out;
 		}
 
 		const int n_inputs;
 		const int n_outputs;
 
 	private:
-		MatrixXd W;
-		VectorXd b, a_in, z;
-
-		MatrixXd dC_dW;
-		VectorXd dC_db;
+		MatrixXd W, a_in, z;
+		VectorXd b;
 
 		std::unique_ptr<Sigma> sigma;
 
@@ -111,21 +101,32 @@ class Layer {
 
 class Cost {
 	public:
-		using VectorXd = Eigen::VectorXd;
+		using MatrixXd = Eigen::MatrixXd;
 
-		virtual double eval(VectorXd a, VectorXd y) const = 0;
+		virtual double eval(MatrixXd a, MatrixXd y) const = 0;
 
-		virtual VectorXd deriv(VectorXd a, VectorXd y) const = 0;
+		virtual MatrixXd deriv(MatrixXd a, MatrixXd y) const = 0;
 };
 
 class MSE : public Cost {
 	public:
-		double eval(VectorXd a, VectorXd y) const override {
-			return 0.5*(a - y).squaredNorm();
+		double eval(MatrixXd a, MatrixXd y) const override {
+			return 0.5*(a - y).colwise().squaredNorm().sum();
 		}
 
-		VectorXd deriv(VectorXd a, VectorXd y) const override {
+		MatrixXd deriv(MatrixXd a, MatrixXd y) const override {
 			return (a - y);
+		}
+};
+
+class CrossEntropy : public Cost {
+	public:
+		double eval(MatrixXd a, MatrixXd y) const override {
+			return -(y.array()*log(a.array()) + (1 - y.array())*log(1 - a.array())).sum();
+		}
+
+		MatrixXd deriv(MatrixXd a, MatrixXd y) const override {
+			return -(a.array() - y.array())/(a.array() * (a.array() - 1));
 		}
 };
 
@@ -154,7 +155,7 @@ class Network {
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> wtime_start;
 
-		std::vector<Data::TestSet> _test() const;
+		Data::TestSets _test() const;
 };
 
 
