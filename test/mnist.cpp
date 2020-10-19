@@ -13,5 +13,5 @@ int main()
 
 	Network net(data, layers);
 
-	net.train(3.0, 30, 10, make_unique<MSE>(), true);
+	net.train(0.5, 30, 10, make_unique<CrossEntropy>(), true);
 }

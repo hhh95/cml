@@ -6,7 +6,7 @@ TEST = mnist
 # config {on, off}
 DEBUGGING = off
 NDEBUG = off
-OPENMP = off
+OPENMP = on
 PROFILING = off
 
 # programs
