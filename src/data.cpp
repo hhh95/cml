@@ -123,8 +123,6 @@ void MNIST::show_data(const VectorXd& data, int label) const
 	int n_pixels = data.size();
 	int n_cols = sqrt(n_pixels);
 
-	cout << n_pixels << " " << n_cols << endl;
-
 	cout << "Image:" << endl;
 	for (int pixel = 0; pixel < n_pixels; ++pixel) {
 		int val = (int)(4*data(pixel) - 0.01);
