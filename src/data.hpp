@@ -10,12 +10,10 @@
 
 class Data {
 	public:
-		using VectorXi = Eigen::VectorXi;
 		using VectorXd = Eigen::VectorXd;
 		using MatrixXd = Eigen::MatrixXd;
 
-		using TrainSets = std::pair<MatrixXd, MatrixXd>;
-		using TestSets  = std::pair<MatrixXd, VectorXi>;
+		using Sets = std::pair<MatrixXd, MatrixXd>;
 
 		Data(const std::string& dir_name, const std::vector<int>& splits) :
 			splits{splits}
@@ -27,20 +25,20 @@ class Data {
 
 		void shuffle_training_data() {
 			std::vector<int> idx = rng.random_indices(get_n_training_sets());
-			TrainSets training_data_copy = training_data;
+			Sets training_data_copy = training_data;
 			for (int i = 0; i < get_n_training_sets(); ++i) {
 				training_data.first.col(i) = training_data_copy.first.col(idx[i]);
 				training_data.second.col(i) = training_data_copy.second.col(idx[i]);
 			}
 		}
 
-		const std::vector<TrainSets> get_training_batches(int batch_size) const {
-			std::vector<TrainSets> batches;
+		const std::vector<Sets> get_training_batches(int batch_size) const {
+			std::vector<Sets> batches;
 
 			int i = 0;
 
 			while (i + batch_size < get_n_training_sets()) {
-				TrainSets batch = std::make_pair(
+				Sets batch = std::make_pair(
 					training_data.first.middleCols(i, batch_size),
 					training_data.second.middleCols(i, batch_size)
 				);
@@ -53,7 +51,7 @@ class Data {
 			if (i < get_n_training_sets()) {
 				batch_size = get_n_training_sets() - i - 1;
 
-				TrainSets batch = std::make_pair(
+				Sets batch = std::make_pair(
 					training_data.first.middleCols(i, batch_size),
 					training_data.second.middleCols(i, batch_size)
 				);
@@ -64,15 +62,15 @@ class Data {
 			return batches;
 		}
 
-		const TrainSets& get_training_sets() const {
+		const Sets& get_training_sets() const {
 			return training_data;
 		}
 
-		const TestSets& get_validation_sets() const {
+		const Sets& get_validation_sets() const {
 			return validation_data;
 		}
 
-		const TestSets& get_test_sets() const {
+		const Sets& get_test_sets() const {
 			return test_data;
 		}
 
@@ -89,9 +87,9 @@ class Data {
 	protected:
 		const std::vector<int>& splits;
 
-		TrainSets training_data;
-		TestSets  validation_data;
-		TestSets  test_data;
+		Sets training_data;
+		Sets validation_data;
+		Sets test_data;
 
 		int n_inputs;
 		int n_outputs;
@@ -110,7 +108,7 @@ class MNIST : public Data {
 
 		MatrixXd read_mnist_images(const std::string& file_name);
 
-		VectorXi read_mnist_labels(const std::string& file_name);
+		MatrixXd read_mnist_labels(const std::string& file_name);
 };
 
 #endif

@@ -1,6 +1,8 @@
 #ifndef NETWORK_HPP
 #define NETWORK_HPP
 
+#include <string>
+#include <memory>
 #include <chrono>
 #include <vector>
 #include <fstream>
@@ -18,6 +20,8 @@ class Sigma {
 		virtual MatrixXd eval(MatrixXd x) const = 0;
 
 		virtual MatrixXd deriv(MatrixXd x) const = 0;
+
+		virtual std::string get_name() const = 0;
 };
 
 class Sigmoid : public Sigma {
@@ -29,6 +33,8 @@ class Sigmoid : public Sigma {
 		MatrixXd deriv(MatrixXd x) const override {
 			return exp(x.array())/pow(exp(x.array()) + 1.0, 2);
 		}
+
+		std::string get_name() const override { return "Sigmoid"; };
 };
 
 class TanH : public Sigma {
@@ -40,6 +46,8 @@ class TanH : public Sigma {
 		MatrixXd deriv(MatrixXd x) const override {
 			return 1 - pow(tanh(x.array()), 2);
 		}
+
+		std::string get_name() const override { return "TanH"; };
 };
 
 class SoftPlus : public Sigma {
@@ -51,6 +59,8 @@ class SoftPlus : public Sigma {
 		MatrixXd deriv(MatrixXd x) const override {
 			return 1.0/(1 + exp(-x.array()));
 		}
+
+		std::string get_name() const override { return "SoftPlus"; };
 };
 
 
@@ -90,12 +100,11 @@ class Layer {
 		const int n_inputs;
 		const int n_outputs;
 
+		std::unique_ptr<Sigma> sigma;
+
 	private:
 		MatrixXd W, a_in, z;
 		VectorXd b;
-
-		std::unique_ptr<Sigma> sigma;
-
 };
 
 
@@ -106,6 +115,8 @@ class Cost {
 		virtual double eval(MatrixXd a, MatrixXd y) const = 0;
 
 		virtual MatrixXd deriv(MatrixXd a, MatrixXd y) const = 0;
+
+		virtual std::string get_name() const = 0;
 };
 
 class MSE : public Cost {
@@ -117,17 +128,24 @@ class MSE : public Cost {
 		MatrixXd deriv(MatrixXd a, MatrixXd y) const override {
 			return (a - y);
 		}
+
+		std::string get_name() const override { return "Mean Squared Error"; };
 };
 
 class CrossEntropy : public Cost {
 	public:
 		double eval(MatrixXd a, MatrixXd y) const override {
-			return -(y.array()*log(a.array()) + (1 - y.array())*log(1 - a.array())).sum();
+			MatrixXd tmp = -(y.array()*log(a.array()) + (1 - y.array())*log(1 - a.array()));
+			tmp = tmp.unaryExpr([](double x){ return (std::isfinite(x) ? x : 0.0); });
+			return tmp.sum();
 		}
 
 		MatrixXd deriv(MatrixXd a, MatrixXd y) const override {
-			return -(a.array() - y.array())/(a.array() * (a.array() - 1));
+			MatrixXd tmp = -(a.array() - y.array())/(a.array() * (a.array() - 1));
+			return tmp.unaryExpr([](double x){ return (std::isfinite(x) ? x : 0.0); });
 		}
+
+		std::string get_name() const override { return "Cross Entropy"; };
 };
 
 
@@ -144,8 +162,8 @@ class Network {
 			std::cout << "Total time: " << wtime_delta.count() << " s" << std::endl;
 		}
 
-		void train(double alpha, int epochs, int batch_size, std::unique_ptr<Cost> cost,
-				bool do_tests_inbetween = false);
+		void train(double alpha, int epochs, int batch_size, std::shared_ptr<Cost> cost,
+				bool do_tests_inbetween = false, bool do_validation_inbetween = false);
 
 		void test(int n_incorrect) const;
 
@@ -155,7 +173,9 @@ class Network {
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> wtime_start;
 
-		Data::TestSets _test() const;
+		void _validate(std::shared_ptr<Cost> cost, std::ofstream& fout) const;
+
+		void _test(std::shared_ptr<Cost> cost, std::ofstream& fout) const;
 };
 
 

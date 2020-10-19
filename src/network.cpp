@@ -21,17 +21,24 @@ Network::Network(Data& data, vector<Layer>& layers) :
 	cout << "Created fully connected artificial neural network:" << endl;
 	for(const Layer& layer : layers) {
 		cout << "- " << layer.n_inputs << " inputs, "
-			 << layer.n_outputs << " outputs" << endl;
+			 << layer.n_outputs << " outputs, "
+			 << layer.sigma->get_name() << " activation"
+			 << endl;
 	}
 	cout << endl;
 }
 
-void Network::train(double alpha, int epochs, int batch_size, unique_ptr<Cost> cost,
-		bool do_tests_inbetween)
+void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> cost,
+		bool do_tests_inbetween, bool do_validation_inbetween)
 {
+	ofstream fout("history.csv");
+	assert(fout.is_open());
+
 	int n_training_sets = data.get_n_training_sets();
 
-	cout << "Training neural network on " << n_training_sets << " sets:" << endl;
+	cout << "Training neural network on " << n_training_sets << " sets with "
+		 << cost->get_name() << " cost:" << endl;
+	cout << "Epoch       Training     Validation           Test" << endl;
 
 	for (int epoch = 0; epoch < epochs; ++epoch) {
 
@@ -39,19 +46,27 @@ void Network::train(double alpha, int epochs, int batch_size, unique_ptr<Cost> c
 		data.shuffle_training_data();
 
 		/* get the training batches */
-		const vector<Data::TrainSets> batches = data.get_training_batches(batch_size);
+		const vector<Data::Sets> batches = data.get_training_batches(batch_size);
 
-		/* initialize mean cost */
+		int n_correct = 0;
 		double C_mean = 0;
 
 		/* perform stochastic gradient descent */
-		for(const Data::TrainSets& batch : batches) {
+		for(const Data::Sets& batch : batches) {
 
 			MatrixXd a = batch.first;
 
 			/* feed forward */
 			for (int l = 0; l < (int)layers.size(); ++l)
 				a = layers[l].feed_forward(a);
+
+			/* check if outputs are correct */
+			for (int i = 0; i < (int)batch.first.cols(); ++i) {
+				int prediction; a.col(i).maxCoeff(&prediction);
+				int label; batch.second.col(i).maxCoeff(&label);
+				if (prediction == label)
+					++n_correct;
+			}
 
 			/* add up cost */
 			C_mean += cost->eval(a, batch.second);
@@ -64,31 +79,68 @@ void Network::train(double alpha, int epochs, int batch_size, unique_ptr<Cost> c
 				dC_da_out = layers[l].feed_backward(dC_da_out, alpha);
 		}
 
-		if (do_tests_inbetween) {
-			cout << "epoch " << setw((int)log10(epochs) + 1) << epoch + 1
-				 << "/" << epochs << ": ";
+		cout << setw((int)log10(epochs) + 1) << epoch + 1
+			 << "/" << epochs << fixed << setprecision(2);
 
-			_test();
+		cout << "   " << 100.0*n_correct/data.get_n_training_sets()
+			 << "%  " << C_mean/data.get_n_training_sets();
 
-			cout << ", mean cost = " << C_mean/data.get_n_training_sets() << endl;
+		fout << epoch << ","
+			 << n_correct/data.get_n_training_sets() << ","
+			 << C_mean/data.get_n_training_sets();
 
-		} else {
-			cout << "epoch " << setw((int)log10(epochs) + 1) << epoch + 1
-				 << "/" << epochs << fixed << setprecision(2) << setw(5)
-				 << ": mean cost = " << C_mean/data.get_n_training_sets() << endl;
-		}
+		if (do_validation_inbetween)
+			_validate(cost, fout);
+
+		if (do_tests_inbetween)
+			_test(cost, fout);
+
+		cout << endl;
 	}
+
+	fout.close();
 
 	cout << endl;
 }
 
-Data::TestSets Network::_test() const
+void Network::_validate(std::shared_ptr<Cost> cost, std::ofstream& fout) const
 {
-	const Data::TestSets test_data = data.get_test_sets();
+	const Data::Sets validation_data = data.get_validation_sets();
 
 	int n_correct = 0;
+	double C_mean = 0;
 
-	vector<int> incorrect;
+	MatrixXd a = validation_data.first;
+
+	/* feed forward */
+	for (int l = 0; l < (int)layers.size(); ++l)
+		a = layers[l].feed_forward(a);
+
+	/* check if output is correct */
+	for (int i = 0; i < data.get_n_test_sets(); ++i) {
+		int prediction; a.col(i).maxCoeff(&prediction);
+		int label; validation_data.second.col(i).maxCoeff(&label);
+		if (prediction == label)
+			++n_correct;
+	}
+
+	/* add up cost */
+	C_mean += cost->eval(a, validation_data.second);
+
+	/* display the amount of correct classifications */
+	cout << "   " << 100.0*n_correct/data.get_n_validation_sets()
+		 << "%  " << C_mean/data.get_n_validation_sets();
+
+	fout << "," << n_correct/data.get_n_validation_sets()
+		 << "," << C_mean/data.get_n_validation_sets();
+}
+
+void Network::_test(std::shared_ptr<Cost> cost, std::ofstream& fout) const
+{
+	const Data::Sets test_data = data.get_test_sets();
+
+	int n_correct = 0;
+	double C_mean = 0;
 
 	MatrixXd a = test_data.first;
 
@@ -98,57 +150,66 @@ Data::TestSets Network::_test() const
 
 	/* check if output is correct */
 	for (int i = 0; i < data.get_n_test_sets(); ++i) {
-
 		int prediction; a.col(i).maxCoeff(&prediction);
-
-		if (prediction == test_data.second(i)) {
+		int label; test_data.second.col(i).maxCoeff(&label);
+		if (prediction == label)
 			++n_correct;
-		} else {
-			incorrect.emplace_back(i);
-		}
 	}
+
+	/* add up cost */
+	C_mean += cost->eval(a, test_data.second);
 
 	/* display the amount of correct classifications */
-	cout << setw((int)log10(data.get_n_test_sets()) + 1) << n_correct
-		 << "/" << data.get_n_test_sets() << " ("
-		 << fixed << setprecision(2) << setw(5) << 100.0*n_correct/data.get_n_test_sets()
-		 << "%) correct";
+	cout << "   " << 100.0*n_correct/data.get_n_test_sets()
+		 << "%  " << C_mean/data.get_n_test_sets();
 
-	/* return the incorrect test sets */
-	MatrixXd incorrect_data(data.get_n_inputs(), (int)incorrect.size());
-	VectorXi incorrect_label((int)incorrect.size());
-
-	for (int i = 0; i < (int)incorrect.size(); ++i) {
-		incorrect_data.col(i) = test_data.first.col(incorrect[i]);
-		incorrect_label(i) = test_data.second(incorrect[i]);
-	}
-
-	return make_pair(incorrect_data, incorrect_label);
+	fout << "," << n_correct/data.get_n_test_sets()
+		 << "," << C_mean/data.get_n_test_sets();
 }
 
 void Network::test(int n_incorrect) const
 {
-	cout << "Testing neural network on " << data.get_n_test_sets() << " sets:" << endl;
+	cout << "Testing neural network on " << data.get_n_test_sets()
+		 << " sets:" << endl;
 
-	Data::TestSets incorrect = _test();
+	const Data::Sets test_data = data.get_test_sets();
 
-	cout << "\n\nIncorrectly classified data:" << endl;
+	int n_correct = 0;
+
+	vector<MatrixXd> incorrect_data;
+	vector<int> incorrect_prediction;
+	vector<int> incorrect_label;
+
+	MatrixXd a = test_data.first;
+
+	/* feed forward */
+	for (int l = 0; l < (int)layers.size(); ++l)
+		a = layers[l].feed_forward(a);
+
+	/* check if output is correct */
+	for (int i = 0; i < data.get_n_test_sets(); ++i) {
+		int prediction; a.col(i).maxCoeff(&prediction);
+		int label; test_data.second.col(i).maxCoeff(&label);
+		if (prediction == label) {
+			++n_correct;
+		} else {
+			incorrect_data.emplace_back(test_data.first.col(i));
+			incorrect_prediction.emplace_back(prediction);
+			incorrect_label.emplace_back(label);
+		}
+	}
+
+	/* display the amount of correct classifications */
+	cout << "Accuracy: " << setprecision(2)
+		 << 100.0*n_correct/data.get_n_test_sets() << "%" << endl;
+
+	cout << "\nIncorrectly classified data:" << endl;
 
 	/* create random indices, so that differnet images are shown every run */
-	vector<int> idx = rng.random_indices(incorrect.first.cols());
+	vector<int> idx = rng.random_indices(incorrect_data.size());
 
 	for (int i = 0; i < n_incorrect; ++i) {
-		VectorXd a = incorrect.first.col(idx[i]);
-
-		/* feed forward */
-		for (int l = 0; l < (int)layers.size(); ++l)
-			a = layers[l].feed_forward(a);
-
-		/* get prediciton */
-		int prediction; a.maxCoeff(&prediction);
-
-		/* show incorrect data */
-		data.show_data(a, incorrect.second(idx[i]));
-		cout << "Predicition: " << prediction << endl << endl;
+		data.show_data(incorrect_data[idx[i]], incorrect_label[idx[i]]);
+		cout << "Predicition: " << incorrect_prediction[idx[i]] << endl << endl;
 	}
 }
