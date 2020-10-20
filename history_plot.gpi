@@ -1,0 +1,14 @@
+# plot the history file
+set datafile separator ','
+set key autotitle columnhead
+set multiplot layout 2,1 rowsfirst
+set key bottom right
+plot 'history.csv' using 1:2 with lines, \
+				'' using 1:4 with lines, \
+				'' using 1:6 with lines
+set xlabel 'epoch'
+set key top right
+plot 'history.csv' using 1:3 with lines, \
+				'' using 1:5 with lines, \
+				'' using 1:7 with lines
+unset multiplot

@@ -178,8 +178,7 @@ class Network {
 		}
 
 		void train(double alpha, int epochs, int batch_size, std::shared_ptr<Cost> cost,
-				double lambda,
-				bool do_tests_inbetween = false, bool do_validation_inbetween = false);
+				double lambda, bool do_validation_inbetween, bool do_tests_inbetween);
 
 		void test(int n_incorrect, const std::map<int, std::string>& map = {}) const;
 

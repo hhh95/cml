@@ -1,6 +1,8 @@
 #include "data.hpp"
 #include "network.hpp"
 
+#include <cstdlib>
+
 using namespace std;
 
 int main()
@@ -13,9 +15,11 @@ int main()
 
 	Network net(data, layers);
 
-	net.train(0.5, 30, 10, make_unique<CrossEntropy>(), 0.1, true);
+	net.train(0.5, 30, 10, make_unique<CrossEntropy>(), 0.1, true, false);
 
 	net.test(1);
+
+	//system("gnuplot -p history_plot.gpi");
 }
 
 /* mnist-fashion map */

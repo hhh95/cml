@@ -29,8 +29,7 @@ Network::Network(Data& data, vector<Layer>& layers) :
 }
 
 void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> cost,
-		double lambda,
-		bool do_tests_inbetween, bool do_validation_inbetween)
+		double lambda, bool do_validation_inbetween, bool do_tests_inbetween)
 {
 	ofstream fout("history.csv");
 	assert(fout.is_open());
@@ -39,7 +38,13 @@ void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> c
 
 	cout << "Training neural network on " << n_training_sets << " sets with "
 		 << cost->get_name() << " cost:" << endl;
-	cout << "Epoch       Training     Validation           Test" << endl;
+
+	cout << "Epoch     Training      Validation        Test" << endl;
+
+	fout << "epoch,accuracy training,cost training,"
+		 << "accuracy validation,cost validation,"
+		 << "accuray test,cost test"
+		 << endl;
 
 	for (int epoch = 0; epoch < epochs; ++epoch) {
 
@@ -88,7 +93,7 @@ void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> c
 			 << "%  " << C_mean/data.get_n_training_sets();
 
 		fout << epoch << ","
-			 << n_correct/data.get_n_training_sets() << ","
+			 << n_correct/(double)data.get_n_training_sets() << ","
 			 << C_mean/data.get_n_training_sets();
 
 		if (do_validation_inbetween)
@@ -134,7 +139,7 @@ void Network::_validate(std::shared_ptr<Cost> cost, std::ofstream& fout) const
 	cout << "   " << 100.0*n_correct/data.get_n_validation_sets()
 		 << "%  " << C_mean/data.get_n_validation_sets();
 
-	fout << "," << n_correct/data.get_n_validation_sets()
+	fout << "," << n_correct/(double)data.get_n_validation_sets()
 		 << "," << C_mean/data.get_n_validation_sets();
 }
 
@@ -166,7 +171,7 @@ void Network::_test(std::shared_ptr<Cost> cost, std::ofstream& fout) const
 	cout << "   " << 100.0*n_correct/data.get_n_test_sets()
 		 << "%  " << C_mean/data.get_n_test_sets();
 
-	fout << "," << n_correct/data.get_n_test_sets()
+	fout << "," << n_correct/(double)data.get_n_test_sets()
 		 << "," << C_mean/data.get_n_test_sets();
 }
 
