@@ -64,6 +64,19 @@ class SoftPlus : public Sigma {
 		std::string get_name() const override { return "SoftPlus"; };
 };
 
+class ReLU : public Sigma {
+	public:
+		MatrixXd eval(MatrixXd x) const override {
+			return x.unaryExpr([&](double x){ return (x > 0.0 ? x : 0.0); });
+		}
+
+		MatrixXd deriv(MatrixXd x) const override {
+			return x.unaryExpr([&](double x){ return (x > 0.0 ? 1.0 : 0.0); });
+		}
+
+		std::string get_name() const override { return "ReLU"; };
+};
+
 
 class Layer {
 	public:
@@ -85,14 +98,15 @@ class Layer {
 			return sigma->eval(z);
 		}
 
-		MatrixXd feed_backward(const MatrixXd& dC_da_out, double alpha) {
+		MatrixXd feed_backward(const MatrixXd& dC_da_out, double alpha, double lambda,
+				double n) {
 			MatrixXd delta = dC_da_out.cwiseProduct(sigma->deriv(z));
 			MatrixXd _dC_da_out = W.transpose()*delta;
 
 			MatrixXd dC_dW = delta*a_in.transpose();
 			VectorXd dC_db = delta.rowwise().sum();
 
-			W -= alpha/a_in.cols()*dC_dW;
+			W -= alpha/a_in.cols()*dC_dW + alpha*lambda/n*W;
 			b -= alpha/a_in.cols()*dC_db;
 
 			return _dC_da_out;
@@ -137,13 +151,13 @@ class CrossEntropy : public Cost {
 	public:
 		double eval(MatrixXd a, MatrixXd y) const override {
 			MatrixXd tmp = -(y.array()*log(a.array()) + (1 - y.array())*log(1 - a.array()));
-			tmp = tmp.unaryExpr([](double x){ return (std::isfinite(x) ? x : 0.0); });
+			tmp = tmp.unaryExpr([&](double x){ return (std::isfinite(x) ? x : 0.0); });
 			return tmp.sum();
 		}
 
 		MatrixXd deriv(MatrixXd a, MatrixXd y) const override {
 			MatrixXd tmp = -(a.array() - y.array())/(a.array() * (a.array() - 1));
-			return tmp.unaryExpr([](double x){ return (std::isfinite(x) ? x : 0.0); });
+			return tmp.unaryExpr([&](double x){ return (std::isfinite(x) ? x : 0.0); });
 		}
 
 		std::string get_name() const override { return "Cross Entropy"; };
@@ -164,6 +178,7 @@ class Network {
 		}
 
 		void train(double alpha, int epochs, int batch_size, std::shared_ptr<Cost> cost,
+				double lambda,
 				bool do_tests_inbetween = false, bool do_validation_inbetween = false);
 
 		void test(int n_incorrect, const std::map<int, std::string>& map = {}) const;

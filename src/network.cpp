@@ -29,6 +29,7 @@ Network::Network(Data& data, vector<Layer>& layers) :
 }
 
 void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> cost,
+		double lambda,
 		bool do_tests_inbetween, bool do_validation_inbetween)
 {
 	ofstream fout("history.csv");
@@ -76,7 +77,8 @@ void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> c
 
 			/* back propagation */
 			for (int l = (int)layers.size() - 1; l >= 0; --l)
-				dC_da_out = layers[l].feed_backward(dC_da_out, alpha);
+				dC_da_out = layers[l].feed_backward(dC_da_out, alpha, lambda,
+						data.get_n_training_sets());
 		}
 
 		cout << setw((int)log10(epochs) + 1) << epoch + 1
@@ -96,6 +98,7 @@ void Network::train(double alpha, int epochs, int batch_size, shared_ptr<Cost> c
 			_test(cost, fout);
 
 		cout << endl;
+		fout << endl;
 	}
 
 	fout.close();

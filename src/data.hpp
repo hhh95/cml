@@ -93,7 +93,7 @@ class Data {
 
 class MNIST : public Data {
 	public:
-		MNIST(const std::string& dir_name, int split = 5);
+		MNIST(const std::string& dir_name, int training_split, int validation_split);
 
 		void show_data(const VectorXd& data) const override;
 

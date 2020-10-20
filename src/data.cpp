@@ -5,7 +5,7 @@ using namespace Eigen;
 
 RandomNumberGenerator rng;
 
-MNIST::MNIST(const string& dir_name, int split) :
+MNIST::MNIST(const string& dir_name, int training_split, int validation_split) :
 	Data(dir_name)
 {
 	/* read training data and labels */
@@ -27,15 +27,15 @@ MNIST::MNIST(const string& dir_name, int split) :
 
 	/* create training data */
 	training_data = make_pair(
-		training_images.leftCols((int)training_images.cols()*split/(split + 1.0)),
-		training_labels.leftCols((int)training_images.cols()*split/(split + 1.0))
+		training_images.leftCols(training_split),
+		training_labels.leftCols(training_split)
 	);
 	cout << "- " << get_n_training_sets() << " training data sets" << endl;
 
 	/* create validation data */
 	validation_data = make_pair(
-		training_images.rightCols((int)training_images.cols()/(split + 1.0)),
-		training_labels.rightCols((int)training_images.cols()/(split + 1.0))
+		training_images.rightCols(validation_split),
+		training_labels.rightCols(validation_split)
 	);
 	cout << "- " << get_n_validation_sets() << " validation data sets" << endl;
 
