@@ -15,13 +15,11 @@ class Data {
 
 		using Sets = std::pair<MatrixXd, MatrixXd>;
 
-		Data(const std::string& dir_name, const std::vector<int>& splits) :
-			splits{splits}
-		{
+		Data(const std::string& dir_name) {
 			std::cout << "Reading data from '" << dir_name << "':" << std::endl;
 		}
 
-		virtual void show_data(const VectorXd& data, int label) const = 0;
+		virtual void show_data(const VectorXd& data) const = 0;
 
 		void shuffle_training_data() {
 			std::vector<int> idx = rng.random_indices(get_n_training_sets());
@@ -85,8 +83,6 @@ class Data {
 		int get_n_test_sets() const { return test_data.first.cols(); }
 
 	protected:
-		const std::vector<int>& splits;
-
 		Sets training_data;
 		Sets validation_data;
 		Sets test_data;
@@ -97,13 +93,11 @@ class Data {
 
 class MNIST : public Data {
 	public:
+		MNIST(const std::string& dir_name, int split = 5);
 
-		MNIST(const std::string& dir_name, const std::vector<int>& splits);
-
-		void show_data(const VectorXd& data, int label) const override;
+		void show_data(const VectorXd& data) const override;
 
 	private:
-
 		uint32_t reverse_int(uint32_t& n);
 
 		MatrixXd read_mnist_images(const std::string& file_name);

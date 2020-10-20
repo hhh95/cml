@@ -1,6 +1,7 @@
 #ifndef NETWORK_HPP
 #define NETWORK_HPP
 
+#include <map>
 #include <string>
 #include <memory>
 #include <chrono>
@@ -74,7 +75,7 @@ class Layer {
 		{
 			this->sigma = std::move(sigma);
 
-			W = rng(n_outputs, n_inputs);
+			W = rng(n_outputs, n_inputs)/sqrt(n_inputs);
 			b = rng(n_outputs);
 		}
 
@@ -165,7 +166,7 @@ class Network {
 		void train(double alpha, int epochs, int batch_size, std::shared_ptr<Cost> cost,
 				bool do_tests_inbetween = false, bool do_validation_inbetween = false);
 
-		void test(int n_incorrect) const;
+		void test(int n_incorrect, const std::map<int, std::string>& map = {}) const;
 
 	private:
 		Data& data;

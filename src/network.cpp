@@ -167,7 +167,7 @@ void Network::_test(std::shared_ptr<Cost> cost, std::ofstream& fout) const
 		 << "," << C_mean/data.get_n_test_sets();
 }
 
-void Network::test(int n_incorrect) const
+void Network::test(int n_incorrect, const std::map<int, std::string>& map) const
 {
 	cout << "Testing neural network on " << data.get_n_test_sets()
 		 << " sets:" << endl;
@@ -209,7 +209,18 @@ void Network::test(int n_incorrect) const
 	vector<int> idx = rng.random_indices(incorrect_data.size());
 
 	for (int i = 0; i < n_incorrect; ++i) {
-		data.show_data(incorrect_data[idx[i]], incorrect_label[idx[i]]);
-		cout << "Predicition: " << incorrect_prediction[idx[i]] << endl << endl;
+		cout << "Image No. " << idx[i] << endl;
+
+		data.show_data(incorrect_data[idx[i]]);
+
+		if (map.size() > 0) {
+			cout << "Label: " << map.at(incorrect_label[idx[i]]) << endl;
+			cout << "Predicition: " << map.at(incorrect_prediction[idx[i]])
+				 << endl << endl;
+		} else {
+			cout << "Label: " << incorrect_label[idx[i]] << endl;
+			cout << "Predicition: " << incorrect_prediction[idx[i]]
+				 << endl << endl;
+		}
 	}
 }

@@ -5,12 +5,9 @@ using namespace Eigen;
 
 RandomNumberGenerator rng;
 
-MNIST::MNIST(const string& dir_name, const vector<int>& splits) :
-	Data(dir_name, splits)
+MNIST::MNIST(const string& dir_name, int split) :
+	Data(dir_name)
 {
-	/* training data is split in two parts */
-	assert(splits.size() == 2);
-
 	/* read training data and labels */
 	MatrixXd training_images = read_mnist_images(dir_name + "/train-images-idx3-ubyte");
 	MatrixXd training_labels = read_mnist_labels(dir_name + "/train-labels-idx1-ubyte");
@@ -30,15 +27,15 @@ MNIST::MNIST(const string& dir_name, const vector<int>& splits) :
 
 	/* create training data */
 	training_data = make_pair(
-		training_images.leftCols(splits[0]),
-		training_labels.leftCols(splits[0])
+		training_images.leftCols((int)training_images.cols()*split/(split + 1.0)),
+		training_labels.leftCols((int)training_images.cols()*split/(split + 1.0))
 	);
 	cout << "- " << get_n_training_sets() << " training data sets" << endl;
 
 	/* create validation data */
 	validation_data = make_pair(
-		training_images.rightCols(splits[1]),
-		training_labels.rightCols(splits[1])
+		training_images.rightCols((int)training_images.cols()/(split + 1.0)),
+		training_labels.rightCols((int)training_images.cols()/(split + 1.0))
 	);
 	cout << "- " << get_n_validation_sets() << " validation data sets" << endl;
 
@@ -118,12 +115,11 @@ MatrixXd MNIST::read_mnist_labels(const string& file_name)
 	return labels;
 }
 
-void MNIST::show_data(const VectorXd& data, int label) const
+void MNIST::show_data(const VectorXd& data) const
 {
 	int n_pixels = data.size();
 	int n_cols = sqrt(n_pixels);
 
-	cout << "Image:" << endl;
 	for (int pixel = 0; pixel < n_pixels; ++pixel) {
 		int val = (int)(4*data(pixel) - 0.01);
 
@@ -137,5 +133,4 @@ void MNIST::show_data(const VectorXd& data, int label) const
 		if ((pixel + 1)%n_cols == 0)
 			cout << endl;
 	}
-	cout << "Label: " << label << endl;
 }
