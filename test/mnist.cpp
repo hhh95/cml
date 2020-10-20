@@ -7,7 +7,7 @@ using namespace std;
 
 int main()
 {
-	MNIST data("data/mnist", 50000, 10000);
+	MNIST data("data/mnist-fashion", 50000, 10000);
 
 	vector<Layer> layers;
 	layers.emplace_back(Layer(784, 30, make_unique<Sigmoid>()));
@@ -17,20 +17,19 @@ int main()
 
 	net.train(0.5, 30, 10, make_unique<CrossEntropy>(), 0.1, true, false);
 
-	net.test(1);
+	/* mnist-fashion map */
+	map<int, string> map;
+	map[0] = "T-shirt/top";
+	map[1] = "Trouser";
+	map[2] = "Pullover";
+	map[3] = "Dress";
+	map[4] = "Coat";
+	map[5] = "Sandal";
+	map[6] = "Shirt";
+	map[7] = "Sneaker";
+	map[8] = "Bag";
+	map[9] = "T-shirt/top";
 
-	//system("gnuplot -p history_plot.gpi");
+	net.test(1, map);
 }
 
-/* mnist-fashion map */
-//map<int, string> map;
-//map[0] = "T-shirt/top";
-//map[1] = "Trouser";
-//map[2] = "Pullover";
-//map[3] = "Dress";
-//map[4] = "Coat";
-//map[5] = "Sandal";
-//map[6] = "Shirt";
-//map[7] = "Sneaker";
-//map[8] = "Bag";
-//map[9] = "T-shirt/top";
