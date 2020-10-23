@@ -35,7 +35,7 @@ class Data {
 
 			int i = 0;
 
-			while (i + batch_size < get_n_training_sets()) {
+			while (i + batch_size <= get_n_training_sets()) {
 				Sets batch = std::make_pair(
 					training_data.first.middleCols(i, batch_size),
 					training_data.second.middleCols(i, batch_size)
@@ -46,16 +46,7 @@ class Data {
 				i += batch_size;
 			}
 
-			if (i < get_n_training_sets()) {
-				batch_size = get_n_training_sets() - i - 1;
-
-				Sets batch = std::make_pair(
-					training_data.first.middleCols(i, batch_size),
-					training_data.second.middleCols(i, batch_size)
-				);
-
-				batches.emplace_back(batch);
-			}
+			/* left over sets will not be included in the batches */
 
 			return batches;
 		}
@@ -103,6 +94,16 @@ class MNIST : public Data {
 		MatrixXd read_mnist_images(const std::string& file_name);
 
 		MatrixXd read_mnist_labels(const std::string& file_name);
+};
+
+class CSV : public Data {
+	public:
+		CSV(const std::string& dir_name, int training_split, int validation_split);
+
+		void show_data(const VectorXd& data) const override;
+
+	private:
+		MatrixXd read_csv(const std::string& file_name);
 };
 
 #endif

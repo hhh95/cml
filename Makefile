@@ -1,12 +1,12 @@
 # CML - Machine Learning Methods
 # See LICENSE file for copyright and license details.
 TARGET = libcml
-TEST = mnist
+TEST = xor
 
 # config {on, off}
-DEBUGGING = off
+DEBUGGING = on
 NDEBUG = off
-OPENMP = on
+OPENMP = off
 PROFILING = off
 
 # programs

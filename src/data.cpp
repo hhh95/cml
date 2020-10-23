@@ -134,3 +134,87 @@ void MNIST::show_data(const VectorXd& data) const
 			cout << endl;
 	}
 }
+
+
+CSV::CSV(const std::string& dir_name, int training_split, int validation_split) :
+	Data(dir_name)
+{
+	/* read training data and labels */
+	MatrixXd training_pairs = read_csv(dir_name + "/train_data.csv");
+	MatrixXd training_labels = read_csv(dir_name + "/train_labels.csv");
+
+	/* read test data and labels */
+	MatrixXd test_pairs = read_csv(dir_name + "/test_data.csv");
+	MatrixXd test_labels = read_csv(dir_name + "/test_labels.csv");
+
+	/* determine inputs and outputs of the data set */
+	n_inputs  = training_pairs.rows();
+	n_outputs = training_labels.rows();
+	cout << "- " << n_inputs << " inputs, " << n_outputs << " outputs" << endl;
+
+	/* make sure the training and test data have the same layout */
+	assert(test_pairs.rows() == n_inputs);
+	assert(test_labels.rows() == n_outputs);
+
+	/* create training data */
+	training_data = make_pair(
+		training_pairs.leftCols(training_split),
+		training_labels.leftCols(training_split)
+	);
+	cout << "- " << get_n_training_sets() << " training data sets" << endl;
+
+	/* create validation data */
+	validation_data = make_pair(
+		training_pairs.rightCols(validation_split),
+		training_labels.rightCols(validation_split)
+	);
+	cout << "- " << get_n_validation_sets() << " validation data sets" << endl;
+
+	/* create test data */
+	test_data = make_pair(
+		test_pairs,
+		test_labels
+	);
+	cout << "- " << get_n_test_sets() << " test data sets" << endl << endl;
+}
+
+void CSV::show_data(const VectorXd& data) const
+{
+	cout << "[ " << data.transpose() << " ]" << endl;
+}
+
+MatrixXd CSV::read_csv(const std::string& file_name)
+{
+	ifstream fin(file_name);
+	assert(fin.is_open());
+
+	vector<vector<double>> table;
+
+	string line;
+	while (getline(fin, line)) {
+		string cell;
+		vector<double> row;
+		stringstream line_ss(line);
+		while (getline(line_ss, cell, ',')) {
+			row.emplace_back(stod(cell));
+		}
+		table.emplace_back(row);
+	}
+
+	int n_inputs = table[0].size();
+	int n_sets = table.size();
+
+	MatrixXd data(n_inputs, n_sets);
+
+	for(int j = 0; j < n_sets; ++j) {
+		assert((int)table[j].size() == n_inputs);
+
+		for (int i = 0; i < n_inputs; ++i) {
+			data(i, j) = table[j][i];
+		}
+	}
+
+	fin.close();
+
+	return data;
+}
