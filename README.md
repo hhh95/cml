@@ -2,7 +2,7 @@
 
 Machine Learning Methods, written in C++
 
-## Training on the MNIST Data Set
+## MNIST Data Set
 
 - 748 inputs, 10 outputs, 30 hidden neurons
 - sigmoid activation function
@@ -12,7 +12,7 @@ Machine Learning Methods, written in C++
 
 ![](img/mnist.png)
 
-## Training on the MNIST-Fashion Data Set
+## MNIST-Fashion Data Set
 
 - 748 inputs, 10 outputs, 30 hidden neurons
 - sigmoid activation function
